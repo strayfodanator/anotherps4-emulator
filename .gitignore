@@ -1,0 +1,7 @@
+/target/
+/games/
+*.log
+/inspirations/
+/tools/
+/scratch.rs
+*.bin

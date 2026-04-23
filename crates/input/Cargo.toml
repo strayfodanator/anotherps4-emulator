@@ -1,0 +1,11 @@
+[package]
+name = "anotherps4-input"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PS4 input emulation (DualShock 4)"
+
+[dependencies]
+anotherps4-common = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }

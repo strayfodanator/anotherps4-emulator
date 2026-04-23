@@ -1,0 +1,26 @@
+[package]
+name = "anotherps4"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "AnotherPS4 - PS4 Emulator"
+
+[[bin]]
+name = "anotherps4"
+path = "src/main.rs"
+
+[dependencies]
+anotherps4-common = { workspace = true }
+anotherps4-formats = { workspace = true }
+anotherps4-core = { workspace = true }
+anotherps4-gpu = { workspace = true }
+anotherps4-audio = { workspace = true }
+anotherps4-input = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+parking_lot = { workspace = true }
+libc = "0.2.185"
+winit = { workspace = true }
+raw-window-handle = { workspace = true }
