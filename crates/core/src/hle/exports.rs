@@ -840,34 +840,34 @@ pub fn hle_export_dispatcher(
             //   uint32_t height,                    <- r9
             //   uint32_t pitchInPixel               <- stack arg +8 from RSP
             // )
-            // SceVideoOutBufferAttribute layout:
-            //   u32 width          @ +0
-            //   u32 height         @ +4
-            //   u32 pixelFormat    @ +8
-            //   u32 tilingMode     @ +12
-            //   u32 aspectRatio    @ +16
+            // SceVideoOutBufferAttribute layout (matches PS4 SDK / shadPS4):
+            //   u32 pixelFormat    @ +0
+            //   u32 tilingMode     @ +4
+            //   s32 aspectRatio    @ +8
+            //   u32 width          @ +12
+            //   u32 height         @ +16
             //   u32 pitchInPixel   @ +20
-            //   u32 option         @ +24  (leave 0 = default)
+            //   u32 option         @ +24
+            //   u32 reserved0      @ +28
+            //   u64 reserved1      @ +32
             let attr_ptr = rdi as *mut u32;
             let pixel_format = rsi as u32;
             let tiling_mode  = rdx as u32;
             let aspect_ratio = rcx as u32;
             let width        = r8  as u32;
             let height       = r9  as u32;
-            // pitch is 7th arg — first stack-passed arg, now wired through dispatcher
             let pitch = if stack_arg7 != 0 { stack_arg7 as u32 } else { width };
 
             if !attr_ptr.is_null() {
                 unsafe {
-                    // Zero the whole struct first (at least 64 bytes)
-                    std::ptr::write_bytes(attr_ptr as *mut u8, 0, 64);
-                    *attr_ptr.add(0) = width;           // width
-                    *attr_ptr.add(1) = height;          // height
-                    *attr_ptr.add(2) = pixel_format;    // pixelFormat
-                    *attr_ptr.add(3) = tiling_mode;     // tilingMode
-                    *attr_ptr.add(4) = aspect_ratio;    // aspectRatio
+                    // Do NOT zero the struct - the game might have put other data in here!
+                    *attr_ptr.add(0) = pixel_format; // pixelFormat
+                    *attr_ptr.add(1) = tiling_mode;     // tilingMode
+                    *attr_ptr.add(2) = aspect_ratio;    // aspectRatio
+                    *attr_ptr.add(3) = width;           // width
+                    *attr_ptr.add(4) = height;          // height
                     *attr_ptr.add(5) = pitch;           // pitchInPixel
-                    *attr_ptr.add(6) = 0;               // option = default
+                    *attr_ptr.add(6) = 0;               // option
                 }
             }
             tracing::info!(
@@ -984,25 +984,29 @@ pub fn hle_export_dispatcher(
                 "HLE sceGnmDrawInitDefaultHardwareState350 -> filled {} dwords",
                 HW_INIT_PACKET_SIZE
             );
-            HW_INIT_PACKET_SIZE as u64
+            unsafe { cmdbuf.add(HW_INIT_PACKET_SIZE as usize) as u64 }
         }
         "sceGnmInsertWaitFlipDone" => {
-            // sceGnmInsertWaitFlipDone(u32* cmdbuf, u32 size, videoOutHandle, bufIdx)
-            // Writes a wait-for-flip PM4 command. Fill with NOPs for now.
+            // sceGnmInsertWaitFlipDone(u32* cmdbuf, s32 videoOutHandle, s32 bufIdx)
+            // Writes a wait-for-flip PM4 command, size is typically 7 dwords.
             let cmdbuf = rdi as *mut u32;
-            let size = rsi as u32;
-            if !cmdbuf.is_null() && size >= 7 {
+            let video_out_handle = rsi as i32;
+            let buf_idx = rdx as i32;
+            let size = 7_usize; // fixed 7 dwords for the wait command
+
+            if !cmdbuf.is_null() {
                 unsafe {
-                    // NOP packet filling the entire size
+                    // NOP packet filling the 7 dwords
                     let header_size = size - 1; // PM4 header counts N-1
-                    *cmdbuf = 0xC0001000 | ((header_size - 1) << 16); // NOP with size
-                    for i in 1..size as usize {
+                    *cmdbuf = 0xC0001000 | ((header_size as u32 - 1) << 16); // NOP with size
+                    for i in 1..size {
                         *cmdbuf.add(i) = 0;
                     }
+                    cmdbuf.add(size) as u64
                 }
+            } else {
+                0
             }
-            tracing::info!("HLE sceGnmInsertWaitFlipDone (NOP-filled)");
-            0
         }
         // fzyMKs9kim0 — sceKernelWaitEqueue
         "fzyMKs9kim0" | "fzyMKs9kim0#R#S" => {

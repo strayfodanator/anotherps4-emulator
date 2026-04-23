@@ -84,18 +84,46 @@ impl Linker {
         let base_virtual_addr = module.base_virtual_addr;
         self.modules.push(module);
 
-        // --- EXPERIMENTAL: Game-Specific Patching ---
+        // --- EXPERIMENTAL: NOP all PS4Toolkit assertion traps ---
+        // The PS4Toolkit compiles assertions as: test eax,eax; jne +2; int 0x41
+        // We scan the entire code segment and NOP the `int 0x41` (CD 41) instructions
+        // so the game never aborts on internal SDK checks.
         if name == "eboot.bin" {
-            let rip_offset = 0x20CD6A;
             unsafe {
-                let target_addr = base_virtual_addr as *mut u8;
-                let inst_ptr = target_addr.add(rip_offset);
-                if *inst_ptr == 0xCD && *inst_ptr.add(1) == 0x41 {
-                    tracing::warn!("(HACK) Patching dataFormatEncoder 'int 0x41' assertion at offset 0x{:X}", rip_offset);
-                    // Provide memory protection override if needed. VirtualMemory should be R/W/E at this layer.
-                    *inst_ptr = 0x90; // NOP
-                    *inst_ptr.add(1) = 0x90; // NOP
+                let base = base_virtual_addr as *mut u8;
+                let module_ref = &self.modules[index as usize];
+                let code_size = module_ref.aligned_base_size as usize;
+                let mut patched = 0u32;
+                
+                // scan for pattern: 85 C0 75 02 CD 41
+                // (test eax,eax; jne +2; int 0x41)
+                let mut i = 0;
+                while i + 5 < code_size {
+                    if *base.add(i) == 0x85
+                        && *base.add(i + 1) == 0xC0
+                        && *base.add(i + 2) == 0x75
+                        && *base.add(i + 3) == 0x02
+                        && *base.add(i + 4) == 0xCD
+                        && *base.add(i + 5) == 0x41
+                    {
+                        // Replace "test eax,eax; jne +2; int 0x41" (6 bytes)
+                        // with "mov eax, 0x0A; nop" (B8 0A 00 00 00 90)
+                        // This forces the assertion result to return a valid Gnm::DataFormat
+                        // so the engine doesn't abort texture/format setup with invalid values.
+                        *base.add(i) = 0xB8;
+                        *base.add(i + 1) = 0x0A;
+                        *base.add(i + 2) = 0x00;
+                        *base.add(i + 3) = 0x00;
+                        *base.add(i + 4) = 0x00;
+                        *base.add(i + 5) = 0x90;
+                        patched += 1;
+                        i += 6;
+                    } else {
+                        i += 1;
+                    }
                 }
+                
+                tracing::warn!("(HACK) Patched {} PS4Toolkit assertion traps in eboot.bin", patched);
             }
         }
 
