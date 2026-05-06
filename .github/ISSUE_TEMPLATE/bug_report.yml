@@ -1,0 +1,56 @@
+name: Bug Report
+description: Create a report to help us improve
+title: "[BUG] "
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+  - type: input
+    id: version
+    attributes:
+      label: Emulator Version / Commit
+      description: What version or commit hash of the emulator are you using?
+      placeholder: e.g., v0.1.0 or commit abc1234
+    validations:
+      required: true
+  - type: textarea
+    id: os
+    attributes:
+      label: Operating System & Hardware
+      description: Please provide your OS (e.g., Linux, Windows) and relevant hardware specs (CPU, GPU, RAM).
+      value: |
+        - OS: 
+        - CPU: 
+        - GPU: 
+        - RAM: 
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '....'
+        3. Scroll down to '....'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Output
+      description: Please paste any relevant logs, terminal output, or stack traces here.
+      render: shell
